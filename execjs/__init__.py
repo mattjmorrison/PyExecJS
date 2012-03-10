@@ -202,19 +202,23 @@ class ExternalRuntime:
         
         name = command[0]
         args = command[1:]
-        
+
         if _is_windows():
             which_command = [_windows_which(), name]
+            p = Popen(which_command, stdout=PIPE, stderr=PIPE)
+            stdoutdata, _ = p.communicate()
+            stdoutdata = stdoutdata.decode(sys.getfilesystemencoding())
+            path = stdoutdata.strip().split('\n')[0]
+            if not path:
+                return None
+            return [path] + args
         else:
-            which_command = ["command", "-v", name]
-        p = Popen(which_command, stdout=PIPE, stderr=PIPE, shell=True)
-        stdoutdata, _ = p.communicate()
-        stdoutdata = stdoutdata.decode(sys.getfilesystemencoding())
-        path = stdoutdata.strip().split('\n')[0]
-        if not path:
-            return None
-        return [path] + args
-
+            for path in os.environ['PATH'].split(':'):
+                new_path = os.path.join(path, name)
+                if os.path.exists(new_path):
+                    return [new_path] + args
+            else:
+                return None
 
     class Context:
         def __init__(self, runtime, source=''):
